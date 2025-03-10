@@ -51,18 +51,43 @@ const client = new Client({
             '--single-process',
             '--disable-gpu',
             '--disable-software-rasterizer',
-            '--disable-dev-tools'
+            '--disable-dev-tools',
+            '--disable-extensions',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-breakpad',
+            '--disable-client-side-phishing-detection',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+            '--disable-ipc-flooding-protection',
+            '--disable-popup-blocking',
+            '--disable-prompt-on-repost',
+            '--force-color-profile=srgb',
+            '--metrics-recording-only',
+            '--no-default-browser-check',
+            '--password-store=basic',
+            '--use-gl=swiftshader',
+            '--use-mock-keychain',
+            '--window-size=1280,720'
         ],
         executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
-        defaultViewport: null,
-        timeout: 60000, // Timeout maior para operações do Puppeteer (60 segundos)
-        handleSIGINT: false, // Evita que o processo seja encerrado com CTRL+C
+        defaultViewport: {
+            width: 1280,
+            height: 720
+        },
+        ignoreHTTPSErrors: true,
+        timeout: 120000, // Aumentado para 2 minutos
+        handleSIGINT: false,
         handleSIGTERM: false,
-        handleSIGHUP: false
+        handleSIGHUP: false,
+        protocolTimeout: 120000, // Timeout para operações de protocolo
+        dumpio: true // Habilitar logs do Chromium para debug
     },
-    // Adiciona um timeout maior para as operações do cliente
-    qrTimeoutMs: 60000, // 60 segundos para escanear o QR
-    authTimeoutMs: 120000 // 2 minutos para autenticação
+    qrTimeoutMs: 120000, // 2 minutos para escanear o QR
+    authTimeoutMs: 180000 // 3 minutos para autenticação
 });
 
 // Variável para o watcher de tarefas
