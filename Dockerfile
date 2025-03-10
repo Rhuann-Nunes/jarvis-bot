@@ -26,10 +26,9 @@ RUN npm install
 # Copiar o restante dos arquivos
 COPY . .
 
-# Porta para o servidor web (Railway atribui uma porta via PORT)
+# Porta para o servidor web
 ENV WEB_PORT=3000
-# Expor a porta para que o Railway possa acessá-la
-EXPOSE ${PORT:-3000}
+EXPOSE 3000
 
 # Iniciar o bot
 CMD ["npm", "start"] 

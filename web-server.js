@@ -65,12 +65,10 @@ io.on('connection', (socket) => {
 
 // Iniciar o servidor
 function startServer() {
-  // Railway atribui uma porta dinâmica através da variável PORT
-  const port = process.env.PORT || process.env.WEB_PORT || 3000;
+  const port = process.env.PORT || 3000;
   
   server.listen(port, '0.0.0.0', () => {
     console.log(`Servidor web rodando na porta ${port}`);
-    console.log(`Em produção, acesse: ${process.env.RAILWAY_STATIC_URL || 'URL não disponível'}`);
   });
   
   // Lidar com erros do servidor
