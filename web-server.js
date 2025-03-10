@@ -10,13 +10,7 @@ const qrcode = require('qrcode');
 // Configuração do servidor
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: '*', // Permitir qualquer origem
-    methods: ['GET', 'POST']
-  },
-  transports: ['websocket', 'polling']
-});
+const io = socketIo(server);
 
 // Pasta pública para arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
@@ -65,14 +59,10 @@ io.on('connection', (socket) => {
 
 // Iniciar o servidor
 function startServer() {
-  // O Railway está definindo a porta como 8080
-  const port = process.env.PORT || 8080;
+  const port = process.env.WEB_PORT || 3000;
   
-  // Logar informações de ambiente para debug
-  console.log(`Variáveis de ambiente: PORT=${process.env.PORT}, WEB_PORT=${process.env.WEB_PORT}`);
-  
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`Servidor web rodando na porta ${port}`);
+  server.listen(port, () => {
+    console.log(`Servidor web rodando em http://localhost:${port}`);
   });
   
   // Lidar com erros do servidor
