@@ -41,6 +41,7 @@ const client = new Client({
     authStrategy: new LocalAuth({ clientId: "jarvis-whatsapp-bot" }),
     puppeteer: {
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -49,17 +50,27 @@ const client = new Client({
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-webgl',
+            '--disable-infobars',
+            '--window-position=0,0',
+            '--ignore-certificate-errors',
+            '--ignore-certificate-errors-spki-list',
+            '--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36"'
         ],
         defaultViewport: null,
-        timeout: 60000, // Timeout maior para operações do Puppeteer (60 segundos)
-        handleSIGINT: false, // Evita que o processo seja encerrado com CTRL+C
+        timeout: 120000, // Timeout maior (2 minutos)
+        handleSIGINT: false,
         handleSIGTERM: false,
-        handleSIGHUP: false
+        handleSIGHUP: false,
+        dumpio: true // Adiciona logs do browser para debug
     },
     // Adiciona um timeout maior para as operações do cliente
-    qrTimeoutMs: 60000, // 60 segundos para escanear o QR
-    authTimeoutMs: 120000 // 2 minutos para autenticação
+    qrTimeoutMs: 120000, // 2 minutos para escanear o QR
+    authTimeoutMs: 180000, // 3 minutos para autenticação
+    restartOnAuthFail: true, // Reinicia automaticamente em falha de autenticação
+    takeoverOnConflict: true // Permite tomar controle de uma sessão existente
 });
 
 // Variável para o watcher de tarefas
@@ -80,6 +91,39 @@ function updateBotStatus(status = {}) {
   });
 }
 
+// Função para inicializar o cliente com tratamento de erros
+async function initializeClient() {
+    console.log('[INICIALIZAÇÃO] Iniciando cliente WhatsApp...');
+    
+    try {
+        await client.initialize();
+        return true;
+    } catch (error) {
+        console.error(`[ERRO] Falha ao inicializar cliente: ${error}`);
+        
+        // Tenta reiniciar após um delay
+        console.log('[RECUPERAÇÃO] Tentando reiniciar em 10 segundos...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        try {
+            console.log('[RECUPERAÇÃO] Reiniciando cliente...');
+            // Força a destruição do cliente anterior
+            try {
+                await client.destroy();
+            } catch (e) {
+                // Ignora erros na destruição
+            }
+            
+            // Reinicia o cliente
+            await client.initialize();
+            return true;
+        } catch (retryError) {
+            console.error(`[ERRO] Nova falha na inicialização: ${retryError}`);
+            return false;
+        }
+    }
+}
+
 // Verificar conexão com Supabase
 supabase.from('user_preferences').select('count', { count: 'exact', head: true })
     .then(({ count, error }) => {
@@ -95,6 +139,13 @@ supabase.from('user_preferences').select('count', { count: 'exact', head: true }
         console.error('[INICIALIZAÇÃO] Falha ao testar conexão com Supabase:', err);
         updateBotStatus({ message: 'Falha ao conectar com Supabase', connected: false });
     });
+
+// Inicializar o cliente ao iniciar a aplicação
+initializeClient().then(success => {
+    if (!success) {
+        console.error('[SISTEMA] Falha ao inicializar o cliente após tentativas.');
+    }
+});
 
 // Evento quando o QR code é recebido
 client.on('qr', async (qr) => {
@@ -137,12 +188,18 @@ client.on('disconnected', async (reason) => {
     // Atualizar status do bot
     updateBotStatus({ connected: false });
     
-    // Tentar reconectar
-    try {
-        console.log('Tentando reconectar...');
-        await client.initialize();
-    } catch (error) {
-        console.error(`Falha ao reconectar: ${error.message}`);
+    // Tentar reconectar com mais robustez
+    console.log('Tentando reconectar após desconexão...');
+    
+    // Aguarda 5 segundos antes de tentar reconectar
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Tenta inicializar novamente usando nossa função robusta
+    const success = await initializeClient();
+    if (!success) {
+        console.error('[SISTEMA] Falha na reconexão após várias tentativas.');
+        // Notificar o servidor web
+        webServer.sendLog('[ERRO CRÍTICO] Falha na reconexão após várias tentativas.');
     }
 });
 
@@ -346,30 +403,4 @@ function cleanShutdown() {
 
 // Capturar sinais para encerramento limpo
 process.on('SIGINT', cleanShutdown);
-process.on('SIGTERM', cleanShutdown);
-
-// Iniciar o cliente com tratamento de erro
-console.log('[INICIALIZAÇÃO] Iniciando cliente WhatsApp...');
-updateBotStatus({ message: 'Iniciando cliente WhatsApp', connected: false });
-
-client.initialize()
-    .catch(err => {
-        console.error('[ERRO] Falha ao inicializar cliente:', err);
-        console.log('[RECUPERAÇÃO] Tentando reiniciar em 10 segundos...');
-        updateBotStatus({ 
-          message: 'Falha ao inicializar, tentando novamente em 10s', 
-          connected: false
-        });
-        
-        // Tenta reiniciar após 10 segundos em caso de falha na inicialização
-        setTimeout(() => {
-            console.log('[RECUPERAÇÃO] Reiniciando cliente...');
-            client.initialize().catch(e => {
-                console.error('[ERRO] Nova falha na inicialização:', e);
-                updateBotStatus({ 
-                  message: 'Falha na reinicialização', 
-                  connected: false
-                });
-            });
-        }, 10000);
-    }); 
+process.on('SIGTERM', cleanShutdown); 

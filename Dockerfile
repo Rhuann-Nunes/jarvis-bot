@@ -13,6 +13,8 @@ RUN apt-get update \
 # Definir variável de ambiente para o Puppeteer usar o Chrome instalado no sistema
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --disable-extensions"
+ENV NODE_ENV=production
 
 # Pasta de trabalho
 WORKDIR /app
