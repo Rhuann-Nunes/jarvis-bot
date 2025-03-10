@@ -49,8 +49,11 @@ const client = new Client({
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-dev-tools'
         ],
+        executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
         defaultViewport: null,
         timeout: 60000, // Timeout maior para operações do Puppeteer (60 segundos)
         handleSIGINT: false, // Evita que o processo seja encerrado com CTRL+C
