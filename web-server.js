@@ -65,7 +65,11 @@ io.on('connection', (socket) => {
 
 // Iniciar o servidor
 function startServer() {
-  const port = process.env.PORT || 3000;
+  // O Railway está definindo a porta como 8080
+  const port = process.env.PORT || 8080;
+  
+  // Logar informações de ambiente para debug
+  console.log(`Variáveis de ambiente: PORT=${process.env.PORT}, WEB_PORT=${process.env.WEB_PORT}`);
   
   server.listen(port, '0.0.0.0', () => {
     console.log(`Servidor web rodando na porta ${port}`);

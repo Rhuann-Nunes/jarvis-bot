@@ -26,9 +26,9 @@ RUN npm install
 # Copiar o restante dos arquivos
 COPY . .
 
-# Porta para o servidor web
-ENV WEB_PORT=3000
-EXPOSE 3000
+# Porta para o servidor web (Railway está usando a porta 8080)
+ENV WEB_PORT=8080
+EXPOSE 8080
 
 # Iniciar o bot
 CMD ["npm", "start"] 

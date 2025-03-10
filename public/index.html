@@ -50,7 +50,7 @@
   </div>
 
   <script>
-    // Conectar ao socket.io com configuração para funcionar em qualquer domínio
+    // Conectar ao socket.io com configuração para funcionar com a porta correta
     const socket = io({
       path: '/socket.io',
       transports: ['websocket', 'polling'],
@@ -101,9 +101,16 @@
       }
     }
     
-    // Eventos do Socket
+    // Adicionando log quando a conexão é estabelecida ou falha
     socket.on('connect', () => {
+      console.log('Conectado ao servidor Socket.IO');
+      document.getElementById('connection-info').innerHTML += '<p class="success">Conexão WebSocket estabelecida!</p>';
       addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Conectado ao servidor`);
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('Erro ao conectar:', error);
+      document.getElementById('connection-info').innerHTML += `<p class="error">Erro de conexão: ${error}</p>`;
     });
     
     socket.on('disconnect', () => {
