@@ -38,32 +38,41 @@ console.error = function(...args) {
 
 // Inicializar o cliente WhatsApp com configurações melhoradas
 const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "jarvis-whatsapp-bot" }),
+    authStrategy: new LocalAuth({ 
+        clientId: "jarvis-whatsapp-bot",
+        dataPath: process.env.NODE_ENV === 'production' ? '/root/.cache/puppeteer' : './.wwebjs_auth'
+    }),
     puppeteer: {
-        headless: true,
+        headless: "new",
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
             '--disable-gpu',
             '--disable-extensions',
             '--disable-default-apps',
-            '--window-size=1280,720'
+            '--enable-features=NetworkService',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--window-size=1920,1080'
         ],
         executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
         defaultViewport: {
-            width: 1280,
-            height: 720
+            width: 1920,
+            height: 1080,
+            deviceScaleFactor: 1
         },
         ignoreHTTPSErrors: true,
-        timeout: 120000,
-        handleSIGINT: false,
-        handleSIGTERM: false,
-        handleSIGHUP: false
+        timeout: 180000,
+        protocolTimeout: 180000
     },
-    qrTimeoutMs: 120000,
+    qrMaxRetries: 5,
+    qrTimeoutMs: 180000,
     authTimeoutMs: 180000,
     takeoverOnConflict: true,
+    takeoverTimeoutMs: 180000,
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 });
 
