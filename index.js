@@ -77,6 +77,14 @@ const client = new Client({
             '--disable-web-security',
             '--disable-features=AudioServiceOutOfProcess',
             '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-features=GlobalMediaControls',
+            '--disable-remote-fonts',
+            '--disable-threaded-scrolling',
+            '--disable-features=StorageAccessAPI',
+            '--disable-features=WebRTC',
+            '--disable-features=WebUSB,Serial',
+            '--no-experiments',
+            '--no-pings',
             '--window-size=1280,720'
         ],
         executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
@@ -91,12 +99,18 @@ const client = new Client({
         handleSIGHUP: false,
         protocolTimeout: 120000,
         dumpio: true,
-        pipe: true // Usar pipe ao invés de WebSocket
+        pipe: true,
+        env: {
+            ...process.env,
+            DISABLE_NACL: "1",
+            DISABLE_DATABASE: "1",
+            DISABLE_DESKTOP_NOTIFICATIONS: "1"
+        }
     },
     qrTimeoutMs: 120000,
     authTimeoutMs: 180000,
-    takeoverOnConflict: true, // Tentar assumir a sessão em caso de conflito
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' // User agent fixo
+    takeoverOnConflict: true,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 });
 
 // Variável para o watcher de tarefas

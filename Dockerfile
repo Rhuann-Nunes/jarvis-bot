@@ -2,7 +2,7 @@ FROM node:18-slim
 
 # Instalar dependências necessárias para o Puppeteer e Chrome
 RUN apt-get update \
-    && apt-get install -y wget gnupg dbus dbus-x11 \
+    && apt-get install -y wget gnupg dbus dbus-x11 systemd \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
@@ -52,9 +52,13 @@ RUN apt-get update \
         fonts-kacst \
         fonts-freefont-ttf \
         --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /run/dbus \
-    && dbus-daemon --system
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar machine-id e D-Bus
+RUN dbus-uuidgen > /etc/machine-id \
+    && mkdir -p /var/run/dbus \
+    && dbus-daemon --system --fork \
+    && sleep 1
 
 # Criar diretório de trabalho
 WORKDIR /app
@@ -73,7 +77,12 @@ EXPOSE 3000
 
 # Definir variável de ambiente para o Chrome
 ENV CHROME_BIN=/usr/bin/google-chrome
-ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+
+# Script de inicialização
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Comando para iniciar o bot
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "start"] 
