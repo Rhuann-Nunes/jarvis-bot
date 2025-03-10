@@ -47,6 +47,23 @@
         <p>Última atualização: <span id="last-update">-</span></p>
       </div>
     </section>
+
+    <section class="info-box test-message-box">
+      <h2>Testar Envio de Mensagem</h2>
+      <div class="test-message-form">
+        <div class="form-group">
+          <label for="test-phone">Número de Telefone:</label>
+          <input type="text" id="test-phone" placeholder="Ex: 5562994493774" />
+          <small>Digite o número com DDD, com ou sem o código do país (55)</small>
+        </div>
+        <div class="form-group">
+          <label for="test-message">Mensagem:</label>
+          <textarea id="test-message" rows="4" placeholder="Digite a mensagem de teste"></textarea>
+        </div>
+        <button id="send-test-message" class="primary-button" disabled>Enviar Mensagem de Teste</button>
+        <p id="test-status" class="test-status"></p>
+      </div>
+    </section>
   </div>
 
   <script>
@@ -124,8 +141,41 @@
       addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Novo QR code gerado`);
     });
     
-    // Receber status do bot
+    // Elementos adicionais
+    const testPhoneInput = document.getElementById('test-phone');
+    const testMessageInput = document.getElementById('test-message');
+    const sendTestButton = document.getElementById('send-test-message');
+    const testStatus = document.getElementById('test-status');
+    
+    // Função para validar campos do teste
+    function validateTestFields() {
+      const phone = testPhoneInput.value.trim();
+      const message = testMessageInput.value.trim();
+      const isValid = phone.length >= 11 && message.length > 0;
+      sendTestButton.disabled = !isValid || !botStatus.connected;
+      
+      // Atualizar mensagem de status
+      if (!botStatus.connected) {
+        testStatus.textContent = 'Aguarde o bot conectar ao WhatsApp';
+        testStatus.className = 'test-status warning';
+      } else if (!isValid) {
+        testStatus.textContent = 'Preencha todos os campos corretamente';
+        testStatus.className = 'test-status warning';
+      } else {
+        testStatus.textContent = 'Pronto para enviar';
+        testStatus.className = 'test-status ready';
+      }
+    }
+    
+    // Monitorar mudanças nos campos
+    testPhoneInput.addEventListener('input', validateTestFields);
+    testMessageInput.addEventListener('input', validateTestFields);
+    
+    // Atualizar status do botão quando o status do bot mudar
     socket.on('botStatus', (status) => {
+      botStatus = status;
+      validateTestFields();
+      
       // Atualizar indicador de status
       if (status.connected) {
         statusIndicator.classList.add('online');
@@ -164,6 +214,30 @@
       if (autoScroll) {
         logsContainer.scrollTop = logsContainer.scrollHeight;
       }
+    });
+
+    // Evento de clique para enviar mensagem de teste
+    sendTestButton.addEventListener('click', () => {
+      const phone = testPhoneInput.value.trim();
+      const message = testMessageInput.value.trim();
+      
+      if (!phone || !message) {
+        addLogEntry(`[ERROR] ${new Date().toLocaleTimeString()} - Por favor, preencha todos os campos`);
+        return;
+      }
+      
+      // Desabilitar botão durante o envio
+      sendTestButton.disabled = true;
+      testStatus.textContent = 'Enviando mensagem...';
+      testStatus.className = 'test-status sending';
+      
+      socket.emit('sendTestMessage', { phone, message });
+      addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Enviando mensagem de teste para ${phone}`);
+      
+      // Reabilitar botão após 2 segundos
+      setTimeout(() => {
+        validateTestFields();
+      }, 2000);
     });
   </script>
 </body>

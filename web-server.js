@@ -31,6 +31,9 @@ let botStatus = {
   sessions: 0
 };
 
+// Armazenar referência para o cliente WhatsApp
+let whatsappClient = null;
+
 // Rota principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -50,6 +53,56 @@ io.on('connection', (socket) => {
   
   // Enviar o status atual do bot
   socket.emit('botStatus', botStatus);
+  
+  // Receber solicitação de envio de mensagem de teste
+  socket.on('sendTestMessage', async ({ phone, message }) => {
+    try {
+      // Verificar se o bot está conectado
+      if (!botStatus.connected) {
+        throw new Error('Bot não está conectado ao WhatsApp');
+      }
+
+      // Verificar se o cliente está disponível
+      if (!whatsappClient || !whatsappClient.info || !whatsappClient.info.wid) {
+        throw new Error('Cliente WhatsApp não está pronto para enviar mensagens');
+      }
+
+      // Formatar número para o WhatsApp
+      let formattedNumber = phone.replace(/\D/g, ''); // Remove não-dígitos
+      if (!formattedNumber.startsWith('55')) {
+        formattedNumber = '55' + formattedNumber;
+      }
+
+      // Garantir que o número está no formato correto para o WhatsApp
+      // O WhatsApp espera o número sem o 9 após o DDD para números brasileiros
+      if (formattedNumber.length === 13 && formattedNumber.startsWith('55')) {
+        const ddd = formattedNumber.substring(2, 4);
+        const numero = formattedNumber.substring(5); // Remove o 9
+        formattedNumber = `55${ddd}${numero}`;
+      }
+
+      const whatsappNumber = `${formattedNumber}@c.us`;
+
+      // Log de tentativa com número formatado
+      const attemptLog = `[INFO] ${new Date().toLocaleTimeString()} - Tentando enviar mensagem para ${whatsappNumber}`;
+      io.emit('log', attemptLog);
+      logHistory.push(attemptLog);
+
+      // Tentar enviar a mensagem
+      await whatsappClient.sendMessage(whatsappNumber, message);
+      
+      // Log de sucesso
+      const successLog = `[SUCCESS] ${new Date().toLocaleTimeString()} - Mensagem de teste enviada para ${whatsappNumber}`;
+      io.emit('log', successLog);
+      logHistory.push(successLog);
+      
+    } catch (error) {
+      // Log de erro
+      const errorLog = `[ERROR] ${new Date().toLocaleTimeString()} - Erro ao enviar mensagem de teste: ${error.message}`;
+      io.emit('log', errorLog);
+      logHistory.push(errorLog);
+    }
+  });
   
   // Quando o cliente desconecta
   socket.on('disconnect', () => {
@@ -102,6 +155,19 @@ function startServer() {
     updateBotStatus: (status) => {
       botStatus = { ...botStatus, ...status };
       io.emit('botStatus', botStatus);
+    },
+    
+    // Definir o cliente WhatsApp
+    setWhatsappClient: (client) => {
+      whatsappClient = client;
+      console.log('[WEB] Cliente WhatsApp configurado:', client ? 'Disponível' : 'Indisponível');
+      
+      // Atualizar status do bot
+      if (client && client.info && client.info.wid) {
+        botStatus.connected = true;
+        botStatus.message = 'Bot conectado e pronto para enviar mensagens';
+        io.emit('botStatus', botStatus);
+      }
     },
     
     // Parar o servidor

@@ -117,14 +117,19 @@ client.on('qr', async (qr) => {
 client.on('ready', () => {
     console.log('JARVIS Bot está conectado!');
     
-    // Iniciar sessão de administrador
-    createSession('admin');
-    
-    // Iniciar o monitor de tarefas
-    taskWatcher.start();
+    // Primeiro configurar o cliente WhatsApp no servidor web
+    webServer.setWhatsappClient(client);
+    console.log('Cliente WhatsApp configurado no servidor web');
     
     // Atualizar status do bot
-    updateBotStatus({ connected: true });
+    updateBotStatus({ 
+        connected: true,
+        message: 'Bot conectado e pronto para enviar mensagens'
+    });
+    
+    // Inicializar e iniciar o monitor de tarefas
+    taskWatcher = new TaskWatcher(client);
+    taskWatcher.start();
 });
 
 // Evento para reconexão
