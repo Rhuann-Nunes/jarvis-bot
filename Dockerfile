@@ -2,7 +2,7 @@ FROM node:18-slim
 
 # Instalar dependências necessárias para o Puppeteer e Chrome
 RUN apt-get update \
-    && apt-get install -y wget gnupg \
+    && apt-get install -y wget gnupg dbus dbus-x11 \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
@@ -52,7 +52,9 @@ RUN apt-get update \
         fonts-kacst \
         fonts-freefont-ttf \
         --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/dbus \
+    && dbus-daemon --system
 
 # Criar diretório de trabalho
 WORKDIR /app
@@ -71,6 +73,7 @@ EXPOSE 3000
 
 # Definir variável de ambiente para o Chrome
 ENV CHROME_BIN=/usr/bin/google-chrome
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
 
 # Comando para iniciar o bot
 CMD ["npm", "start"] 

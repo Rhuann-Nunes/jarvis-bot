@@ -71,6 +71,12 @@ const client = new Client({
             '--password-store=basic',
             '--use-gl=swiftshader',
             '--use-mock-keychain',
+            '--disable-notifications',
+            '--disable-audio-output',
+            '--disable-speech-api',
+            '--disable-web-security',
+            '--disable-features=AudioServiceOutOfProcess',
+            '--disable-features=IsolateOrigins,site-per-process',
             '--window-size=1280,720'
         ],
         executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
@@ -79,15 +85,18 @@ const client = new Client({
             height: 720
         },
         ignoreHTTPSErrors: true,
-        timeout: 120000, // Aumentado para 2 minutos
+        timeout: 120000,
         handleSIGINT: false,
         handleSIGTERM: false,
         handleSIGHUP: false,
-        protocolTimeout: 120000, // Timeout para operações de protocolo
-        dumpio: true // Habilitar logs do Chromium para debug
+        protocolTimeout: 120000,
+        dumpio: true,
+        pipe: true // Usar pipe ao invés de WebSocket
     },
-    qrTimeoutMs: 120000, // 2 minutos para escanear o QR
-    authTimeoutMs: 180000 // 3 minutos para autenticação
+    qrTimeoutMs: 120000,
+    authTimeoutMs: 180000,
+    takeoverOnConflict: true, // Tentar assumir a sessão em caso de conflito
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' // User agent fixo
 });
 
 // Variável para o watcher de tarefas
