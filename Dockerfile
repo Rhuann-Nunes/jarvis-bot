@@ -1,8 +1,8 @@
-FROM node:18-slim
+FROM node:18-bullseye
 
-# Instalar Chrome e dependências mínimas necessárias
+# Instalar Chrome e dependências
 RUN apt-get update \
-    && apt-get install -y wget gnupg \
+    && apt-get install -y wget gnupg procps \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
@@ -48,6 +48,8 @@ EXPOSE 3000
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
+ENV DEBUG=puppeteer:*,whatsapp-web:*
+ENV PUPPETEER_DEBUG=true
 
 # Comando para iniciar o bot
 CMD ["npm", "start"] 
