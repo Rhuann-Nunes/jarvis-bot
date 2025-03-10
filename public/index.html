@@ -50,8 +50,14 @@
   </div>
 
   <script>
-    // Conectar ao socket.io
-    const socket = io();
+    // Conectar ao socket.io com configuração para funcionar em qualquer domínio
+    const socket = io({
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
     
     // Elementos da página
     const logsContainer = document.getElementById('logs-container');

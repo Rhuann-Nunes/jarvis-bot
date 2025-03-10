@@ -10,7 +10,13 @@ const qrcode = require('qrcode');
 // Configuração do servidor
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: '*', // Permitir qualquer origem
+    methods: ['GET', 'POST']
+  },
+  transports: ['websocket', 'polling']
+});
 
 // Pasta pública para arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
@@ -59,10 +65,12 @@ io.on('connection', (socket) => {
 
 // Iniciar o servidor
 function startServer() {
+  // Railway atribui uma porta dinâmica através da variável PORT
   const port = process.env.PORT || process.env.WEB_PORT || 3000;
   
   server.listen(port, '0.0.0.0', () => {
-    console.log(`Servidor web rodando em http://localhost:${port}`);
+    console.log(`Servidor web rodando na porta ${port}`);
+    console.log(`Em produção, acesse: ${process.env.RAILWAY_STATIC_URL || 'URL não disponível'}`);
   });
   
   // Lidar com erros do servidor
