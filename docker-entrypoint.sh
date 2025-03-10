@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Iniciar Xvfb
+Xvfb :99 -screen 0 1280x1024x24 > /dev/null 2>&1 &
+
+# Aguardar Xvfb iniciar
+sleep 1
+
+# Configurar display
+export DISPLAY=:99
+
 # Garantir que o D-Bus está rodando
 if [ ! -e /var/run/dbus/system_bus_socket ]; then
     echo "Iniciando D-Bus..."
