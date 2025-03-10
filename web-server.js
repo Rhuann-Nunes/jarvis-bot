@@ -59,9 +59,9 @@ io.on('connection', (socket) => {
 
 // Iniciar o servidor
 function startServer() {
-  const port = process.env.WEB_PORT || 3000;
+  const port = process.env.PORT || process.env.WEB_PORT || 3000;
   
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     console.log(`Servidor web rodando em http://localhost:${port}`);
   });
   

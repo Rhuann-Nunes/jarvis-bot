@@ -27,4 +27,10 @@ Thumbs.db
 
 # Diretório de build
 dist/
-build/ 
+build/
+
+# Pasta temporária do Puppeteer
+.local-chromium/
+
+# Arquivos de ambiente específicos para Railway
+railway.toml 
