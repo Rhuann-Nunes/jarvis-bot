@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS Bot - Painel de Controle</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>JARVIS Bot - Painel de Controle</h1>
+      <div class="status">
+        <div class="status-indicator" id="status-indicator"></div>
+        <span id="status-text">Desconectado</span>
+      </div>
+    </header>
+
+    <section class="qr-section">
+      <h2>QR Code</h2>
+      <p>Escaneie o QR code com seu WhatsApp para conectar o bot</p>
+      <div class="qr-code" id="qr-container">
+        <p id="qr-placeholder">Aguardando geração do QR code...</p>
+      </div>
+      <div id="connection-info">
+        <p>Após escanear, esta página mostrará que o bot está conectado.</p>
+      </div>
+    </section>
+
+    <section class="logs-section">
+      <div class="logs-header">
+        <h2>Logs do Sistema</h2>
+        <div class="logs-controls">
+          <button id="clear-logs">Limpar Logs</button>
+          <button id="toggle-autoscroll">Auto-scroll: ON</button>
+        </div>
+      </div>
+      <div class="logs-container" id="logs-container"></div>
+    </section>
+
+    <section class="info-box">
+      <h2>Informações do Bot</h2>
+      <div id="bot-info">
+        <p>Status da API: <span id="api-status">Desconhecido</span></p>
+        <p>Sessões ativas: <span id="active-sessions">0</span></p>
+        <p>Última atualização: <span id="last-update">-</span></p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Conectar ao socket.io
+    const socket = io();
+    
+    // Elementos da página
+    const logsContainer = document.getElementById('logs-container');
+    const qrContainer = document.getElementById('qr-container');
+    const qrPlaceholder = document.getElementById('qr-placeholder');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    const clearLogsButton = document.getElementById('clear-logs');
+    const toggleAutoscrollButton = document.getElementById('toggle-autoscroll');
+    const apiStatus = document.getElementById('api-status');
+    const activeSessions = document.getElementById('active-sessions');
+    const lastUpdate = document.getElementById('last-update');
+    
+    // Configurações
+    let autoScroll = true;
+    
+    // Função para adicionar entrada de log
+    function addLogEntry(log) {
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      
+      // Adicionar classes com base no tipo de log
+      if (log.includes('[ERROR]')) {
+        logEntry.classList.add('error');
+      } else if (log.includes('[SUCCESS]')) {
+        logEntry.classList.add('success');
+      } else if (log.includes('[WARNING]')) {
+        logEntry.classList.add('warning');
+      } else if (log.includes('[SYSTEM]')) {
+        logEntry.classList.add('system');
+      } else {
+        logEntry.classList.add('info');
+      }
+      
+      logEntry.textContent = log;
+      logsContainer.appendChild(logEntry);
+      
+      // Auto-scroll se habilitado
+      if (autoScroll) {
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+      }
+    }
+    
+    // Eventos do Socket
+    socket.on('connect', () => {
+      addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Conectado ao servidor`);
+    });
+    
+    socket.on('disconnect', () => {
+      addLogEntry(`[ERROR] ${new Date().toLocaleTimeString()} - Desconectado do servidor`);
+      statusIndicator.classList.remove('online');
+      statusText.textContent = 'Desconectado';
+    });
+    
+    // Receber logs
+    socket.on('log', (log) => {
+      addLogEntry(log);
+    });
+    
+    // Receber histórico de logs
+    socket.on('logHistory', (logs) => {
+      logsContainer.innerHTML = '';
+      logs.forEach(log => addLogEntry(log));
+    });
+    
+    // Receber QR Code
+    socket.on('qrCode', (qrCodeUrl) => {
+      qrPlaceholder.style.display = 'none';
+      qrContainer.innerHTML = `<img src="${qrCodeUrl}" alt="WhatsApp QR Code">`;
+      addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Novo QR code gerado`);
+    });
+    
+    // Receber status do bot
+    socket.on('botStatus', (status) => {
+      // Atualizar indicador de status
+      if (status.connected) {
+        statusIndicator.classList.add('online');
+        statusText.textContent = 'Conectado';
+        qrContainer.innerHTML = '<p>Bot conectado ao WhatsApp!</p>';
+      } else {
+        statusIndicator.classList.remove('online');
+        statusText.textContent = 'Desconectado';
+      }
+      
+      // Atualizar informações do bot
+      if (status.api) {
+        apiStatus.textContent = status.api.connected ? 'Conectado' : 'Desconectado';
+        apiStatus.className = status.api.connected ? 'status-online' : 'status-offline';
+      }
+      
+      if (status.sessions) {
+        activeSessions.textContent = status.sessions;
+      }
+      
+      // Atualizar timestamp
+      lastUpdate.textContent = new Date().toLocaleString();
+    });
+    
+    // Evento de clique para limpar logs
+    clearLogsButton.addEventListener('click', () => {
+      logsContainer.innerHTML = '';
+      addLogEntry(`[SYSTEM] ${new Date().toLocaleTimeString()} - Logs limpos`);
+    });
+    
+    // Evento de clique para alternar auto-scroll
+    toggleAutoscrollButton.addEventListener('click', () => {
+      autoScroll = !autoScroll;
+      toggleAutoscrollButton.textContent = `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+      
+      if (autoScroll) {
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+      }
+    });
+  </script>
+</body>
+</html> 

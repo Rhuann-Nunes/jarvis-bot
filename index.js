@@ -8,9 +8,33 @@ const { supabase } = require('./config/supabase');
 const messageHandler = require('./utils/messageHandler');
 const sessionManager = require('./lib/session-manager');
 const TaskWatcher = require('./lib/task-watcher');
+const { startServer } = require('./web-server');
 
 // Definir timeout para limpeza de sessões (20 minutos = 1200000 ms)
 const SESSION_TIMEOUT = 20 * 60 * 1000; 
+
+// Iniciar o servidor web
+const webServer = startServer();
+
+// Sobrescrever console.log e console.error para enviar para o front-end
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+console.log = function(...args) {
+  const message = args.map(arg => 
+    typeof arg === 'object' ? JSON.stringify(arg) : arg
+  ).join(' ');
+  originalConsoleLog.apply(console, args);
+  webServer.sendLog(`[INFO] ${new Date().toLocaleTimeString()} - ${message}`);
+};
+
+console.error = function(...args) {
+  const message = args.map(arg => 
+    typeof arg === 'object' ? JSON.stringify(arg) : arg
+  ).join(' ');
+  originalConsoleError.apply(console, args);
+  webServer.sendLog(`[ERROR] ${new Date().toLocaleTimeString()} - ${message}`);
+};
 
 // Inicializar o cliente WhatsApp com configurações melhoradas
 const client = new Client({
@@ -44,58 +68,82 @@ let taskWatcher = null;
 // Carregar comandos
 const commands = loadCommands();
 
+// Função para atualizar o status do bot
+function updateBotStatus(status = {}) {
+  webServer.updateBotStatus({
+    ...status,
+    api: {
+      connected: !!supabase,
+      url: process.env.JARVIS_API_URL
+    },
+    sessions: sessionManager && sessionManager.sessions ? sessionManager.sessions.size : 0
+  });
+}
+
 // Verificar conexão com Supabase
 supabase.from('user_preferences').select('count', { count: 'exact', head: true })
     .then(({ count, error }) => {
         if (error) {
             console.error('[INICIALIZAÇÃO] Erro ao conectar com o Supabase:', error);
+            updateBotStatus({ message: 'Erro ao conectar com Supabase', connected: false });
         } else {
             console.log(`[INICIALIZAÇÃO] Conectado ao Supabase. Total de usuários: ${count || 0}`);
+            updateBotStatus({ message: 'Conectado ao Supabase', connected: false });
         }
     })
     .catch(err => {
         console.error('[INICIALIZAÇÃO] Falha ao testar conexão com Supabase:', err);
+        updateBotStatus({ message: 'Falha ao conectar com Supabase', connected: false });
     });
 
 // Evento quando o QR code é recebido
-client.on('qr', (qr) => {
-    console.log('[AUTENTICAÇÃO] QR Code recebido, escaneie-o com seu telefone:');
-    qrcode.generate(qr, {small: true});
+client.on('qr', async (qr) => {
+  try {
+    // Enviar QR para o servidor web
+    await webServer.sendQrCode(qr);
+    
+    // Log para o console
+    console.log('Novo QR code gerado. Escaneie-o com seu WhatsApp para autenticar o bot.');
+    console.log('QR code também disponível na interface web.');
+    
+    // Atualizar status do bot
+    updateBotStatus({ connected: false });
+  } catch (error) {
+    console.error(`Erro ao processar QR code: ${error.message}`);
+  }
 });
 
 // Evento quando o cliente está pronto
 client.on('ready', () => {
-    console.log('[SISTEMA] Bot está pronto e conectado!');
-    console.log(`[SISTEMA] Comandos carregados: ${commands.size}`);
+    console.log('JARVIS Bot está conectado!');
     
-    // Verificar quais métodos o cliente tem disponível
-    const clientMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(client));
-    console.log('[SISTEMA] Métodos disponíveis no cliente:', clientMethods.join(', '));
+    // Iniciar sessão de administrador
+    createSession('admin');
     
-    // Iniciar o watcher de tarefas
-    if (!taskWatcher) {
-        taskWatcher = new TaskWatcher(client);
-        taskWatcher.start();
-    }
+    // Iniciar o monitor de tarefas
+    taskWatcher.start();
+    
+    // Atualizar status do bot
+    updateBotStatus({ connected: true });
 });
 
 // Evento para reconexão
-client.on('disconnected', (reason) => {
-    console.log('[SISTEMA] Cliente desconectado:', reason);
-    console.log('[SISTEMA] Tentando reconectar...');
+client.on('disconnected', async (reason) => {
+    console.log(`Bot desconectado: ${reason}`);
     
-    // Parar o watcher de tarefas durante a desconexão
-    if (taskWatcher) {
-        taskWatcher.stop();
-        taskWatcher = null;
+    // Parar o monitor de tarefas
+    taskWatcher.stop();
+    
+    // Atualizar status do bot
+    updateBotStatus({ connected: false });
+    
+    // Tentar reconectar
+    try {
+        console.log('Tentando reconectar...');
+        await client.initialize();
+    } catch (error) {
+        console.error(`Falha ao reconectar: ${error.message}`);
     }
-    
-    // Tenta reinicializar o cliente após um pequeno delay
-    setTimeout(() => {
-        client.initialize().catch(err => {
-            console.error('[ERRO] Falha ao reinicializar após desconexão:', err);
-        });
-    }, 5000); // Aguarda 5 segundos antes de tentar reconectar
 });
 
 // Contador de mensagens recebidas para logs
@@ -222,6 +270,9 @@ client.on('message', async (message) => {
             
             await messageHandler.processarMensagem(message, typingHelpers, mensagemId);
         }
+        
+        // Atualizar o status para contabilizar sessões
+        updateBotStatus();
     } catch (error) {
         console.error(`[ERRO GERAL #${mensagemId}] Falha ao processar mensagem:`, error);
     }
@@ -233,6 +284,9 @@ function checkExpiredSessions() {
         // O gerenciador de sessões já implementa a verificação e limpeza
         // Esta chamada é apenas para registrar que a verificação está ocorrendo
         logActivity('SESSÕES', 'SISTEMA', `Verificando sessões expiradas. Limite de inatividade: ${SESSION_TIMEOUT/60000} minutos`);
+        
+        // Atualizar o status para contabilizar sessões
+        updateBotStatus();
     } catch (error) {
         console.error('[ERRO] Falha ao verificar sessões expiradas:', error);
     }
@@ -244,47 +298,78 @@ setInterval(checkExpiredSessions, 60000);
 // Tratamento de erros não capturados
 process.on('uncaughtException', (err) => {
     console.error('[ERRO CRÍTICO] Exceção não capturada:', err);
+    updateBotStatus({ 
+      message: 'Erro crítico: Exceção não capturada', 
+      connected: client?.info?.wid ? true : false
+    });
     // Não encerrar o processo para manter o bot funcionando
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[ERRO CRÍTICO] Promessa rejeitada não tratada:', reason);
+    updateBotStatus({ 
+      message: 'Erro crítico: Promessa rejeitada', 
+      connected: client?.info?.wid ? true : false
+    });
     // Não encerrar o processo para manter o bot funcionando
 });
 
 // Função de encerramento limpo
 function cleanShutdown() {
-    console.log('[SISTEMA] Encerrando o bot...');
+    console.log('Encerrando o bot...');
     
-    // Parar o watcher de tarefas
-    if (taskWatcher) {
-        taskWatcher.stop();
-        taskWatcher = null;
-    }
-    
-    // Finalizar o gerenciador de sessões
-    sessionManager.shutdown();
-    
-    // Outras limpezas necessárias
-    
-    console.log('[SISTEMA] Processo finalizado.');
-    process.exit(0);
+    // Parar o servidor web
+    webServer.stop()
+        .then(() => {
+            // Parar o monitor de tarefas
+            if (taskWatcher) {
+                taskWatcher.stop();
+            }
+            
+            // Limpar as sessões
+            cleanupExpiredSessions(true);
+            
+            // Desconectar o cliente WhatsApp
+            if (client && client.isConnected) {
+                return client.destroy();
+            }
+        })
+        .then(() => {
+            console.log('Bot encerrado com sucesso');
+            process.exit(0);
+        })
+        .catch(err => {
+            console.error(`Erro ao encerrar o bot: ${err.message}`);
+            process.exit(1);
+        });
 }
 
-// Tratar sinais de encerramento
+// Capturar sinais para encerramento limpo
 process.on('SIGINT', cleanShutdown);
 process.on('SIGTERM', cleanShutdown);
 
 // Iniciar o cliente com tratamento de erro
 console.log('[INICIALIZAÇÃO] Iniciando cliente WhatsApp...');
+updateBotStatus({ message: 'Iniciando cliente WhatsApp', connected: false });
+
 client.initialize()
     .catch(err => {
         console.error('[ERRO] Falha ao inicializar cliente:', err);
         console.log('[RECUPERAÇÃO] Tentando reiniciar em 10 segundos...');
+        updateBotStatus({ 
+          message: 'Falha ao inicializar, tentando novamente em 10s', 
+          connected: false
+        });
         
         // Tenta reiniciar após 10 segundos em caso de falha na inicialização
         setTimeout(() => {
             console.log('[RECUPERAÇÃO] Reiniciando cliente...');
-            client.initialize().catch(e => console.error('[ERRO] Nova falha na inicialização:', e));
+            client.initialize().catch(e => {
+                console.error('[ERRO] Nova falha na inicialização:', e);
+                updateBotStatus({ 
+                  message: 'Falha na reinicialização', 
+                  connected: false
+                });
+            });
         }, 10000);
     }); 

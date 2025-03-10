@@ -253,3 +253,37 @@ Para personalizar o bot:
 ## Licença
 
 MIT 
+
+## Interface Web
+
+O JARVIS Bot agora inclui uma interface web para facilitar o monitoramento e uso do bot. A interface permite:
+
+- Visualizar e escanear o QR code de autenticação do WhatsApp
+- Acompanhar logs do sistema em tempo real
+- Verificar o status do bot e da conexão com a API
+- Monitorar sessões ativas
+
+### Acessando a Interface Web
+
+A interface web é automaticamente iniciada quando o bot é executado e pode ser acessada através do navegador:
+
+```
+http://localhost:3000
+```
+
+Você pode alterar a porta padrão (3000) definindo a variável de ambiente `WEB_PORT`.
+
+### Recursos da Interface
+
+- **QR Code**: Exibe o QR code para autenticação do WhatsApp, facilitando o processo de conexão sem necessidade de acesso ao console
+- **Logs em tempo real**: Visualize todos os logs do sistema com destaque por tipo (erro, aviso, sucesso, etc.)
+- **Status do Bot**: Monitore o estado do bot (conectado/desconectado) e informações sobre a API JARVIS
+- **Controle de Logs**: Botões para limpar logs e controlar o auto-scroll
+
+### Configuração
+
+Para customizar a porta da interface web, defina a variável de ambiente:
+
+```
+WEB_PORT=8080
+``` 
